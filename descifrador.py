@@ -1,8 +1,7 @@
 import sys
-
 def calcula_inverso(a, n=256):
     """Calcula el inverso """
-    for x in range(1, n):
+    for x in range(n):
         if (a * x) % n == 1:
             return x
     return None
@@ -19,7 +18,7 @@ def procesar_decimado(datos, alfa, modo='descifrar'):
     inverso = calcula_inverso(alfa)
 
     if inverso is None:
-        raise Exception("Error: El valor de alfa no tiene inverso. Debe ser un numero impar.")
+        raise Exception("Error: alfa no tiene inverso módulo 256 (gcd(alfa,256) debe ser 1).")
 
     if modo == 'descifrar':
         for byte_actual in datos:
@@ -46,10 +45,10 @@ def procesar_afin(datos, alfa, beta, modo='descifrar'):
     # 2. Obtenemos el inverso de alfa para poder descifrar
     inverso = calcula_inverso(alfa)
 
-    # 3. Validacion con 'raise': Detenemos el programa si alfa no es impar
+    # 3. Validacion con 'raise': Detenemos el programa si alfa no tiene inverso modulo 256 (no son coprimos)
     if inverso is None:
         # Usamos Exception genérica como pediste
-        raise Exception("Error: El valor de alfa no es valido (debe ser impar).")
+        raise Exception("Error: alfa no tiene inverso módulo 256.")
 
     if modo == 'descifrar':
         for byte_cifrado in datos:
@@ -73,44 +72,78 @@ def procesar_afin(datos, alfa, beta, modo='descifrar'):
             lista_resultado.append(byte_cifrado)
     return bytes(lista_resultado)
 
-def base64(datos):
+def procesar_base64(datos, modo='cifrar'):
     chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-    
-    cadena_binaria_total = ""
-    for byte in datos:
-        # Convertimos el numero a binario, quitamos el prefijo '0b' 
-        # y rellenamos con ceros a la izquierda hasta tener 8 bits
-        binario_8_bits = bin(byte)[2:]
-        while len(binario_8_bits) < 8:
-            binario_8_bits = "0" + binario_8_bits
-        cadena_binaria_total = cadena_binaria_total + binario_8_bits
+    if modo == 'cifrar':
+        cadena_binaria_total = ""
+        for byte in datos:
+            # Convertimos el numero a binario, quitamos el prefijo '0b' 
+            # y rellenamos con ceros a la izquierda hasta tener 8 bits
+            binario_8_bits = bin(byte)[2:]
+            while len(binario_8_bits) < 8:
+                binario_8_bits = "0" + binario_8_bits
+            cadena_binaria_total = cadena_binaria_total + binario_8_bits
 
-    # Calcular el relleno (padding) necesario 
-    # Base64 trabaja en grupos de 3 bytes (24 bits)
-    cantidad_bytes = len(datos)
-    relleno_necesario = (3 - (cantidad_bytes % 3)) % 3
-    
-    # Agregar ceros adicionales al final de la cadena binaria.
-    # Cada simbolo Base64 representa 6 bits 
-    for i in range(relleno_necesario * 2):
-        cadena_binaria_total = cadena_binaria_total + "0"
-    resultado_texto = ""
-    indice = 0
-    while indice < len(cadena_binaria_total):
-        bloque_6_bits = cadena_binaria_total[indice : indice + 6]
-        while len(bloque_6_bits) < 6:
-            bloque_6_bits = bloque_6_bits + "0"
-        valor_decimal = int(bloque_6_bits, 2)
-        # Usamos el valor decimal como indice para buscar el caracter en la cadena 'chars'
-        caracter_base64 = chars[valor_decimal]
-        resultado_texto = resultado_texto + caracter_base64
+        # Calcular el relleno (padding) necesario 
+        # Base64 trabaja en grupos de 3 bytes (24 bits)
+        cantidad_bytes = len(datos)
+        relleno_necesario = (3 - (cantidad_bytes % 3)) % 3
         
-        # Saltamos al siguiente bloque de 6
-        indice = indice + 6
+        # Agregar ceros adicionales al final de la cadena binaria.
+        # Cada simbolo Base64 representa 6 bits 
+        for i in range(relleno_necesario * 2):
+            cadena_binaria_total = cadena_binaria_total + "0"
+        resultado_texto = ""
+        indice = 0
+        while indice < len(cadena_binaria_total):
+            bloque_6_bits = cadena_binaria_total[indice : indice + 6]
+            while len(bloque_6_bits) < 6:
+                bloque_6_bits = bloque_6_bits + "0"
+            valor_decimal = int(bloque_6_bits, 2)
+            # Usamos el valor decimal como indice para buscar el caracter en la cadena 'chars'
+            caracter_base64 = chars[valor_decimal]
+            resultado_texto = resultado_texto + caracter_base64
+            
+            # Saltamos al siguiente bloque de 6
+            indice = indice + 6
 
-    for i in range(relleno_necesario):
-        resultado_texto = resultado_texto + "=" 
-    return resultado_texto
+        for i in range(relleno_necesario):
+            resultado_texto = resultado_texto + "=" 
+        return resultado_texto.encode()
+    else:  # descifrar
+
+        texto =  datos.decode("ascii")
+
+        texto = texto.rstrip("=")
+
+        cadena_binaria_total = ""
+
+        for c in texto:
+            valor = chars.index(c)
+
+            binario_6 = bin(valor)[2:]
+
+            while len(binario_6) < 6:
+                binario_6 = "0" + binario_6
+
+            cadena_binaria_total += binario_6
+
+        resultado_bytes = []
+
+        indice = 0
+
+        while indice + 8 <= len(cadena_binaria_total):
+
+            bloque_8 = cadena_binaria_total[indice:indice+8]
+
+            valor = int(bloque_8, 2)
+
+            resultado_bytes.append(valor)
+
+            indice += 8
+
+        return bytes(resultado_bytes)
+
 
 def main():
     if len(sys.argv) < 4:
@@ -121,22 +154,31 @@ def main():
     modo = sys.argv[1]
     algo = sys.argv[2]
     ruta = sys.argv[3]
+    if modo not in ["cifrar", "descifrar"]:
+        raise Exception("Modo inválido. Usa 'cifrar' o 'descifrar'.")
 
     try:
         with open(ruta, "rb") as f:
             contenido = f.read()
 
         if algo == "cesar":
+            if len(sys.argv) < 5:
+                raise Exception("Falta la llave para César.")
             beta = int(sys.argv[4])
             resultado = procesar_cesar(contenido, beta, modo)
         elif algo == "decimado":
+            if len(sys.argv) < 5:
+                raise Exception("Falta alpha.")
             alpha = int(sys.argv[4])
             resultado = procesar_decimado(contenido, alpha, modo)
         elif algo == "afin":
-            alpha, beta = int(sys.argv[4]), int(sys.argv[5])
+            if len(sys.argv) < 6:
+                raise Exception("Faltan alpha y beta.")
+            alpha = int(sys.argv[4])
+            beta = int(sys.argv[5])
             resultado = procesar_afin(contenido, alpha, beta, modo)
         elif algo == "base64":
-            resultado = base64(contenido).encode() 
+            resultado = procesar_base64(contenido, modo)
         else:
             print("Algoritmo no reconocido.")
             return
