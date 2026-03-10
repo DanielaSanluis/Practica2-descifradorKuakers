@@ -2,16 +2,17 @@ import sys
 import os
 import descifrador
 
-
 # Carpeta donde se guardará todo
 OUTPUT_DIR = "resultados_descifrado"
 
 
+"""Crear el directorio de salida si no existe"""
 def preparar_directorio():
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
 
 
+"""Guarda los bytes descifrados en un archivo binario"""
 def guardar_resultado(nombre_archivo, algoritmo, llave_info, datos):
     nombre = f"{nombre_archivo}_{algoritmo}_{llave_info}.bin"
     ruta = os.path.join(OUTPUT_DIR, nombre)
@@ -19,11 +20,11 @@ def guardar_resultado(nombre_archivo, algoritmo, llave_info, datos):
     with open(ruta, "wb") as f:
         f.write(datos)
 
-
+"""Verifica los bytes de los archivos más comunes. Regresamos True si encuentra una coincidencia"""
 def verificar_firma(datos):
 
     # -------- Imagen --------
-
+    
     # PNG : 89 50 4E 47 0D 0A 1A 0A
     if datos.startswith(bytes.fromhex("89504E470D0A1A0A")):
         return True
@@ -96,74 +97,74 @@ def verificar_firma(datos):
     return False
 
 
+""" 1 """
 def buscar_cesar(datos, nombre_archivo):
 
     print("Buscando llaves para César...")
 
     for llave in range(256):
-
         resultado = descifrador.procesar_cesar(datos, llave, "descifrar")
-
-        guardar_resultado(nombre_archivo, "cesar", f"key{llave}", resultado)
-
+        
         if verificar_firma(resultado):
             print("Firma detectada con llave:", llave)
+            guardar_resultado(nombre_archivo, "cesar", f"key{llave}", resultado)
+            # No se si esto sea válido. Lo pongo para salir del ciclo en cuanto se encuentre
+            # una firma válida.
+            return True
 
 
+""" 2 """
 def buscar_decimado(datos, nombre_archivo):
 
     print("Buscando llaves para Decimado...")
 
     for alpha in range(1, 256):
-
         try:
             resultado = descifrador.procesar_decimado(datos, alpha, "descifrar")
 
-            guardar_resultado(nombre_archivo, "decimado", f"alpha{alpha}", resultado)
-
             if verificar_firma(resultado):
                 print("Firma detectada con alpha:", alpha)
+                guardar_resultado(nombre_archivo, "decimado", f"alpha{alpha}", resultado)
+                return True
 
         except:
             pass
 
 
+""" 3 """
 def buscar_afin(datos, nombre_archivo):
 
     print("Buscando llaves para Afín...")
-    inicio =  141
-    for alpha in range(23, 256):
-
-        for beta in range(inicio, 256):
-
+    #inicio =  141
+    for alpha in range(1, 256):
+        for beta in range(256):
             try:
                 resultado = descifrador.procesar_afin(datos, alpha, beta, "descifrar")
 
-                guardar_resultado(
-                    nombre_archivo,
-                    "afin",
-                    f"alpha{alpha}_beta{beta}",
-                    resultado
-                )
-
                 if verificar_firma(resultado):
                     print("Firma detectada con alpha:", alpha, "beta:", beta)
-
+                    guardar_resultado(nombre_archivo, "afin", f"alpha{alpha}_beta{beta}", resultado)
+                    return True
             except:
                 pass
-        inicio = 0
+        #inicio = 0
 
 
+"""Donde la magia ocurre..."""
 def main():
 
     preparar_directorio()
 
-    #archivos = ["file1.lol", "file2.lol", "file3.lol", "file4.lol"]
-    # archivos = [ "file2.lol", "file3.lol", "file4.lol"]
-    archivos = [  "file3.lol"]
-    #algoritmos = ["cesar", "decimado", "afin"]
-    algoritmos = ["afin"]
+    archivos = ["file1.lol", "file2.lol", "file3.lol", "file4.lol"]
+    #archivos = [ "file2.lol", "file3.lol", "file4.lol"]
+    #archivos = [  "file3.lol"]
+    algoritmos = ["cesar", "decimado", "afin"]
+    #algoritmos = ["afin"]
+    
     for archivo in archivos:
+        if not os.path.exists(archivo):
+            print(f"Advertencia: No se encontró el archivo {archivo}")
+            continue
 
         print("\n============================")
         print("Probando archivo:", archivo)
@@ -177,11 +178,11 @@ def main():
         for algoritmo in algoritmos:
 
             print("\nProbando algoritmo:", algoritmo)
-           # if algoritmo == "cesar":
-            #    buscar_cesar(datos, nombre_base)
+            if algoritmo == "cesar":
+                buscar_cesar(datos, nombre_base)
 
-           # if algoritmo == "decimado":
-               # buscar_decimado(datos, nombre_base)
+            if algoritmo == "decimado":
+                buscar_decimado(datos, nombre_base)
 
             if algoritmo == "afin":
                 buscar_afin(datos, nombre_base)
