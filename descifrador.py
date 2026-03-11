@@ -97,11 +97,7 @@ def procesar_afin(datos, alfa, beta, modo='descifrar'):
     """
     # 1. Creamos una lista vacia para guardar los bytes procesados
     lista_resultado = []
-
-"""Aplicar el descifrado o cifrado Afin"""
-def procesar_afin(datos, alfa, beta, modo = 'descifrar'):
-    # Lista vacia para guardar los bytes procesados
-    lista_resultado = []
+    
     # Obtenemos el inverso de alfa para poder descifrar
     inverso = calcula_inverso(alfa)
 
